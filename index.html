@@ -1,0 +1,394 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Batumi Bachata Weekend – рамка</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #101015;
+      color: #f9f9fb;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+    }
+    .page {
+      width: 100%;
+      max-width: 900px;
+      padding: 24px 16px 40px;
+    }
+    .card {
+      background: #181820;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.55);
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .subtitle {
+      margin-bottom: 20px;
+      font-size: 14px;
+      color: #c8c8d0;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 18px;
+      align-items: center;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 13px;
+    }
+    .file-input-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 999px;
+      background: #ffb638;
+      color: #000;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      outline: none;
+      transition: transform 0.06s ease, box-shadow 0.06s ease, background 0.1s ease;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .file-input-label:hover {
+      background: #ffd169;
+      box-shadow: 0 4px 14px rgba(255,182,56,0.7);
+      transform: translateY(-1px);
+    }
+    .file-input-label:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(255,182,56,0.6);
+    }
+    input[type="file"] { display: none; }
+    .slider { width: 220px; max-width: 100%; }
+    input[type="range"] { width: 100%; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: none;
+      font-size: 14px;
+      cursor: pointer;
+      background: #007aff;
+      color: #fff;
+      transition: background 0.1s ease, transform 0.06s ease, box-shadow 0.06s ease;
+      white-space: nowrap;
+    }
+    .btn[disabled] {
+      background: #444857;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+    .btn:not([disabled]):hover {
+      background: #0063d6;
+      box-shadow: 0 4px 12px rgba(0,122,255,0.45);
+      transform: translateY(-1px);
+    }
+    .btn:not([disabled]):active {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(0,122,255,0.35);
+    }
+    .canvas-wrapper {
+      background: #000;
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+    canvas {
+      max-width: 100%;
+      height: auto;
+      border-radius: 12px;
+      background: #000;
+      touch-action: none;
+    }
+    .hint {
+      font-size: 12px;
+      color: #9a9ab0;
+      margin-top: 8px;
+    }
+    .hint strong { color: #e0e0ff; }
+    @media (max-width: 640px) {
+      .card { padding: 16px; }
+      h1 { font-size: 20px; }
+      .controls { flex-direction: column; align-items: flex-start; }
+      .canvas-wrapper { padding: 10px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="card">
+    <h1>Batumi Bachata Weekend – рамка</h1>
+    <div class="subtitle">
+      Загрузите своё фото, подвиньте его внутри овала и скачайте готовое изображение для сторис или аватарки.
+    </div>
+
+    <div class="controls">
+      <label class="file-input-label">
+        📷 Загрузить фото
+        <input id="fileInput" type="file" accept="image/*">
+      </label>
+
+      <div class="control-group slider">
+        <label for="zoomRange">Масштаб фото</label>
+        <input id="zoomRange" type="range" min="0.3" max="2" step="0.01" value="1" disabled>
+      </div>
+
+      <button id="downloadBtn" class="btn" disabled>⬇️ Скачать PNG</button>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="hint">
+      👉 <strong>Как пользоваться:</strong> загрузите фото, двигайте его мышкой (или пальцем) по холсту, меняйте масштаб ползунком. Когда всё нравится — жмите «Скачать PNG».
+    </div>
+  </div>
+</div>
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const fileInput = document.getElementById('fileInput');
+  const zoomRange = document.getElementById('zoomRange');
+  const downloadBtn = document.getElementById('downloadBtn');
+
+  // исходный постер и маска
+  const posterImg = new Image();
+  posterImg.src = 'poster.jpeg';   // файл постера
+
+  const maskImg = new Image();
+  maskImg.src = 'mask.jpeg';       // файл маски (белый фон, чёрный овал)
+
+  let userImg = null;
+  let frameCanvas = null;
+  let frameCtx = null;
+
+  // пан/зум для пользовательского фото
+  let scale = 1;
+  let minScale = 0.3;
+  let maxScale = 2;
+  let offsetX = 0;
+  let offsetY = 0;
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let imgStartX = 0;
+  let imgStartY = 0;
+
+  let assetsLoaded = 0;
+  function onAssetLoad() {
+    assetsLoaded++;
+    if (assetsLoaded === 2) {
+      buildFrameFromPosterAndMask();
+    }
+  }
+
+  posterImg.onload = onAssetLoad;
+  maskImg.onload = onAssetLoad;
+
+  // создаём "рамку" (постер с вырезанным по маске отверстием)
+  function buildFrameFromPosterAndMask() {
+    canvas.width = posterImg.width;
+    canvas.height = posterImg.height;
+
+    frameCanvas = document.createElement('canvas');
+    frameCanvas.width = posterImg.width;
+    frameCanvas.height = posterImg.height;
+    frameCtx = frameCanvas.getContext('2d');
+
+    // рисуем постер
+    frameCtx.drawImage(posterImg, 0, 0);
+
+    const frameImageData = frameCtx.getImageData(0, 0, frameCanvas.width, frameCanvas.height);
+
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = maskImg.width;
+    maskCanvas.height = maskImg.height;
+    const maskCtx = maskCanvas.getContext('2d');
+    maskCtx.drawImage(maskImg, 0, 0);
+    const maskData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+
+    const fData = frameImageData.data;
+    const mData = maskData.data;
+
+    // всё, что в маске чёрное — делаем прозрачным в постере
+    for (let i = 0; i < mData.length; i += 4) {
+      const r = mData[i];
+      const g = mData[i + 1];
+      const b = mData[i + 2];
+      if (r < 128 && g < 128 && b < 128) {
+        fData[i + 3] = 0;
+      }
+    }
+
+    frameCtx.putImageData(frameImageData, 0, 0);
+    render();
+  }
+
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function (event) {
+      const img = new Image();
+      img.onload = function () {
+        userImg = img;
+        initImageTransform();
+        zoomRange.disabled = false;
+        downloadBtn.disabled = false;
+        render();
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function initImageTransform() {
+    if (!userImg || !canvas.width || !canvas.height) return;
+
+    const canvasRatio = canvas.width / canvas.height;
+    const imgRatio = userImg.width / userImg.height;
+
+    if (imgRatio > canvasRatio) {
+      scale = canvas.width / userImg.width;
+    } else {
+      scale = canvas.height / userImg.height;
+    }
+
+    const baseScale = scale;
+    minScale = baseScale * 0.4;
+    maxScale = baseScale * 2.5;
+
+    zoomRange.min = minScale.toFixed(2);
+    zoomRange.max = maxScale.toFixed(2);
+    zoomRange.value = scale.toFixed(2);
+
+    const displayWidth = userImg.width * scale;
+    const displayHeight = userImg.height * scale;
+    offsetX = (canvas.width - displayWidth) / 2;
+    offsetY = (canvas.height - displayHeight) / 2;
+  }
+
+  function render() {
+    if (!canvas.width || !canvas.height) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (userImg) {
+      const w = userImg.width * scale;
+      const h = userImg.height * scale;
+      ctx.drawImage(userImg, offsetX, offsetY, w, h);
+    } else {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    if (frameCanvas) {
+      ctx.drawImage(frameCanvas, 0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  zoomRange.addEventListener('input', (e) => {
+    if (!userImg) return;
+    const newScale = parseFloat(e.target.value);
+    if (!isFinite(newScale)) return;
+
+    const canvasCenterX = canvas.width / 2;
+    const canvasCenterY = canvas.height / 2;
+    const prevScale = scale;
+    scale = newScale;
+    const ratio = scale / prevScale;
+
+    offsetX = canvasCenterX - (canvasCenterX - offsetX) * ratio;
+    offsetY = canvasCenterY - (canvasCenterY - offsetY) * ratio;
+
+    render();
+  });
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (!userImg) return;
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    imgStartX = offsetX;
+    imgStartY = offsetY;
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartX;
+    const dy = e.clientY - dragStartY;
+    offsetX = imgStartX + dx;
+    offsetY = imgStartY + dy;
+    render();
+  });
+
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
+  });
+
+  canvas.addEventListener('touchstart', (e) => {
+    if (!userImg) return;
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    isDragging = true;
+    dragStartX = touch.clientX;
+    dragStartY = touch.clientY;
+    imgStartX = offsetX;
+    imgStartY = offsetY;
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const dx = touch.clientX - dragStartX;
+    const dy = touch.clientY - dragStartY;
+    offsetX = imgStartX + dx;
+    offsetY = imgStartY + dy;
+    render();
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', () => {
+    isDragging = false;
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    if (!userImg) return;
+    const link = document.createElement('a');
+    link.download = 'batumi_bachata_frame.png';
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
+</script>
+</body>
+</html>
